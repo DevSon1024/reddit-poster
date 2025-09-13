@@ -2,50 +2,48 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const API_BASE_URL = 'http://localhost:5000';
 
-function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onImageDeleted, setIsUploading }) {
+function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDeleted, setIsUploading, uploadType }) {
   const [caption, setCaption] = useState('');
   const [selectedFlair, setSelectedFlair] = useState('');
-  const [selectedImages, setSelectedImages] = useState(new Set(post.images));
+  const [selectedFiles, setSelectedFiles] = useState(new Set(post.files));
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const abortControllerRef = useRef(null);
   
   useEffect(() => {
     if (flairs && flairs.length > 0) {
-      // Avoid resetting if flair is already selected and still valid
       if (!flairs.find(f => f.id === selectedFlair)) {
         setSelectedFlair(flairs[0].id);
       }
     }
   }, [flairs, selectedFlair]);
 
-  // **FIX**: This effect re-syncs the selected images when an image is deleted from the parent state.
   useEffect(() => {
-    setSelectedImages(new Set(post.images));
-  }, [post.images]);
+    setSelectedFiles(new Set(post.files));
+  }, [post.files]);
 
-  const handleImageSelection = (imageName) => {
-    setSelectedImages(prevSelected => {
+  const handleFileSelection = (fileName) => {
+    setSelectedFiles(prevSelected => {
       const newSelected = new Set(prevSelected);
-      if (newSelected.has(imageName)) {
-        newSelected.delete(imageName);
+      if (newSelected.has(fileName)) {
+        newSelected.delete(fileName);
       } else {
-        newSelected.add(imageName);
+        newSelected.add(fileName);
       }
       return newSelected;
     });
   };
 
-  const handleDeleteImage = async (imageName) => {
-    if (!window.confirm(`Are you sure you want to permanently delete ${imageName}? This cannot be undone.`)) {
+  const handleDeleteFile = async (fileName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete ${fileName}? This cannot be undone.`)) {
         return;
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/images/delete`, {
+        const response = await fetch(`${API_BASE_URL}/api/files/delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: imageName }),
+            body: JSON.stringify({ filename: fileName, type: uploadType === 'images' ? 'image' : 'video' }),
         });
 
         const data = await response.json();
@@ -53,10 +51,10 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onImageD
             throw new Error(data.message || 'Failed to delete');
         }
 
-        onImageDeleted(post.uniqueId, imageName);
+        onFileDeleted(post.uniqueId, fileName);
     } catch (error) {
         console.error("Delete failed:", error);
-        alert(`Could not delete image: ${error.message}`);
+        alert(`Could not delete file: ${error.message}`);
     }
   };
 
@@ -84,24 +82,32 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onImageD
         return;
     }
     
-    if (selectedImages.size === 0) {
-        setMessage({ type: 'error', text: 'Please select at least one image to upload.' });
+    if (selectedFiles.size === 0) {
+        setMessage({ type: 'error', text: 'Please select at least one file to upload.' });
         setIsLoading(false);
         setIsUploading(false);
         return;
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/posts/upload`, {
+      const endpoint = uploadType === 'videos' ? 'upload_video' : 'upload';
+      const body = {
+        accountUsername: selectedAccount,
+        username: post.username,
+        caption: caption,
+        flairId: selectedFlair,
+      };
+
+      if (uploadType === 'videos') {
+        body.videoToUpload = Array.from(selectedFiles)[0];
+      } else {
+        body.imagesToUpload = Array.from(selectedFiles);
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/api/posts/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountUsername: selectedAccount,
-          username: post.username,
-          caption: caption,
-          flairId: selectedFlair,
-          imagesToUpload: Array.from(selectedImages),
-        }),
+        body: JSON.stringify(body),
         signal: abortControllerRef.current.signal,
       });
       
@@ -122,8 +128,6 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onImageD
 
   if (!post) return null;
 
-  // The JSX for this component remains the same as the previous step.
-  // ... (paste the JSX from the previous response here)
   return (
     <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-8">
       <div className="flex flex-col md:flex-row justify-between md:items-center border-b border-gray-200 pb-4 mb-4">
@@ -132,42 +136,49 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onImageD
           <p className="text-sm text-gray-600">Username: <span className="font-semibold">{post.username}</span></p>
         </div>
         <div className="text-sm text-gray-600 mt-2 md:mt-0">
-          <p>{post.images.length} images in batch (<span className="font-semibold">{selectedImages.size} selected</span>)</p>
+          <p>{post.files.length} {uploadType} in batch (<span className="font-semibold">{selectedFiles.size} selected</span>)</p>
         </div>
       </div>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-6">
-        {post.images.map(img => (
-          <div key={img} className="relative group aspect-square">
-            <label htmlFor={`checkbox-${post.uniqueId}-${img}`} className="cursor-pointer">
-              <img 
-                src={`${API_BASE_URL}/images/${encodeURIComponent(img)}`} 
-                alt={`preview of ${img}`} 
-                className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedImages.has(img) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
-              />
+      <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-6`}>
+        {post.files.map(file => (
+          <div key={file} className="relative group aspect-square">
+            <label htmlFor={`checkbox-${post.uniqueId}-${file}`} className="cursor-pointer">
+              {uploadType === 'images' ? (
+                <img 
+                  src={`${API_BASE_URL}/images/${encodeURIComponent(file)}`} 
+                  alt={`preview of ${file}`} 
+                  className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
+                />
+              ) : (
+                <video 
+                  src={`${API_BASE_URL}/videos/${encodeURIComponent(file)}`} 
+                  className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
+                />
+              )}
               <div 
-                className={`absolute inset-0 bg-black transition-opacity duration-200 rounded-lg ${selectedImages.has(img) ? 'opacity-20' : 'opacity-0'}`}
+                className={`absolute inset-0 bg-black transition-opacity duration-200 rounded-lg ${selectedFiles.has(file) ? 'opacity-20' : 'opacity-0'}`}
               ></div>
             </label>
             <input 
               type="checkbox"
-              id={`checkbox-${post.uniqueId}-${img}`}
-              checked={selectedImages.has(img)} 
-              onChange={() => handleImageSelection(img)}
+              id={`checkbox-${post.uniqueId}-${file}`}
+              checked={selectedFiles.has(file)} 
+              onChange={() => handleFileSelection(file)}
               className="absolute top-2 left-2 h-6 w-6 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
             />
             <button
               type="button"
               className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 h-8 w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              onClick={() => handleDeleteImage(img)}
-              title={`Delete ${img}`}
+              onClick={() => handleDeleteFile(file)}
+              title={`Delete ${file}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
             </button>
              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg truncate">
-              {img}
+              {file}
             </div>
           </div>
         ))}
@@ -213,8 +224,8 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onImageD
               Cancel Upload
             </button>
           ) : (
-          <button type="submit" disabled={!selectedFlair || selectedImages.size === 0} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-reddit-orange hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
-            {`Upload ${selectedImages.size} Image${selectedImages.size === 1 ? '' : 's'}`}
+          <button type="submit" disabled={!selectedFlair || selectedFiles.size === 0} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-reddit-orange hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
+            {`Upload ${selectedFiles.size} ${uploadType === 'images' ? 'Image' : 'Video'}${selectedFiles.size === 1 ? '' : 's'}`}
           </button>
           )}
         </div>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PostUploader from './components/PostUploader';
-import ManageUsers from './components/ManageUsers'; // Import the new component
+import ManageUsers from './components/ManageUsers';
 
 const API_BASE_URL = 'http://localhost:5000';
 
 function App() {
-  const [view, setView] = useState('uploader'); // 'uploader' or 'users'
+  const [view, setView] = useState('landing'); // 'landing', 'uploader', or 'users'
+  const [uploadType, setUploadType] = useState(null); // 'images' or 'videos'
   const [pendingPosts, setPendingPosts] = useState([]);
   const [flairs, setFlairs] = useState([]);
   const [error, setError] = useState('');
@@ -57,9 +58,9 @@ function App() {
     }
   }, [selectedAccount]);
 
-  // Fetch posts based on page
-  const fetchPosts = useCallback(async (page) => {
-    if (!selectedAccount) {
+  // Fetch posts based on page and type
+  const fetchPosts = useCallback(async (page, type) => {
+    if (!selectedAccount || !type) {
       setPendingPosts([]);
       setIsLoading(false);
       return;
@@ -69,17 +70,17 @@ function App() {
     setError('');
 
     try {
-      const postsRes = await fetch(`${API_BASE_URL}/api/posts/pending?page=${page}&limit=10`, { cache: 'no-cache' });
+      const postsRes = await fetch(`${API_BASE_URL}/api/posts/pending?page=${page}&limit=10&type=${type}`, { cache: 'no-cache' });
       if (!postsRes.ok) throw new Error(`Failed to fetch posts: ${postsRes.statusText}`);
       
       const data = await postsRes.json();
       
       const processedPosts = data.posts.map(post => {
-        if (post.imageCount > 20) {
-          const numParts = Math.ceil(post.imageCount / 20);
+        if (post.fileCount > 20 && type === 'images') {
+          const numParts = Math.ceil(post.fileCount / 20);
           return Array.from({ length: numParts }, (_, i) => ({
             ...post,
-            images: post.images.slice(i * 20, (i + 1) * 20),
+            files: post.files.slice(i * 20, (i + 1) * 20),
             part: i + 1,
             uniqueId: `${post.username}-${i + 1}`
           }));
@@ -99,52 +100,71 @@ function App() {
 
   // Effect to handle account changes
   useEffect(() => {
-    if (selectedAccount) {
+    if (selectedAccount && uploadType) {
       setPendingPosts([]);
       setCurrentPage(1);
       setHasMore(true);
       fetchFlairs();
-      fetchPosts(1);
+      fetchPosts(1, uploadType);
     }
-  }, [selectedAccount, fetchFlairs, fetchPosts]);
+  }, [selectedAccount, uploadType, fetchFlairs, fetchPosts]);
 
   const handleRefresh = () => {
     setPendingPosts([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchPosts(1);
+    fetchPosts(1, uploadType);
     fetchFlairs();
   };
 
   const loadMorePosts = () => {
     const nextPage = currentPage + 1;
     setCurrentPage(nextPage);
-    fetchPosts(nextPage);
+    fetchPosts(nextPage, uploadType);
   };
   
   const handleUploadSuccess = (uniqueId) => {
-    // Re-fetch the first page of posts to ensure the list is up-to-date
-    fetchPosts(1);
+    fetchPosts(1, uploadType);
   };
 
-  const handleImageDeleted = (uniqueId, deletedImage) => {
+  const handleFileDeleted = (uniqueId, deletedFile) => {
     setPendingPosts(currentPosts => {
       const newPosts = currentPosts
         .map(post => {
           if (post.uniqueId === uniqueId) {
-            const remainingImages = post.images.filter(img => img !== deletedImage);
+            const remainingFiles = post.files.filter(file => file !== deletedFile);
             return {
               ...post,
-              images: remainingImages,
-              imageCount: remainingImages.length,
+              files: remainingFiles,
+              fileCount: remainingFiles.length,
             };
           }
           return post;
         })
-        .filter(post => post.images.length > 0);
+        .filter(post => post.files.length > 0);
       return newPosts;
     });
   };
+
+  const renderLandingPage = () => (
+    <div className="text-center">
+      <h2 className="text-3xl font-bold mb-8">What would you like to upload?</h2>
+      <div className="flex justify-center space-x-8">
+        <button
+          onClick={() => { setUploadType('images'); setView('uploader'); }}
+          className="bg-reddit-blue hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl transition duration-300"
+        >
+          Upload Images
+        </button>
+        <button
+          onClick={() => { setUploadType('videos'); setView('uploader'); }}
+          className="bg-reddit-orange hover:bg-orange-600 text-white font-bold py-4 px-8 rounded-lg text-xl transition duration-300"
+        >
+          Upload Videos
+        </button>
+      </div>
+    </div>
+  );
 
   const renderUploaderView = () => (
     <>
@@ -155,8 +175,9 @@ function App() {
           flairs={flairs}
           selectedAccount={selectedAccount}
           onUploadSuccess={handleUploadSuccess}
-          onImageDeleted={handleImageDeleted}
+          onFileDeleted={handleFileDeleted}
           setIsUploading={setIsUploading}
+          uploadType={uploadType}
         />
       ))}
       {hasMore && !isLoading && (
@@ -178,14 +199,14 @@ function App() {
       <header className="bg-white shadow-md sticky top-0 z-10">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center">
           <h1 className="text-2xl font-bold text-reddit-orange mb-4 sm:mb-0">
-            Reddit Image Uploader
+            Reddit Uploader
           </h1>
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
              <button
-              onClick={() => setView(view === 'uploader' ? 'users' : 'uploader')}
+              onClick={() => setView(view === 'uploader' ? 'users' : (view === 'users' ? 'uploader' : 'landing'))}
               className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
             >
-              {view === 'uploader' ? 'Manage Users' : 'Back to Uploader'}
+              {view === 'uploader' ? 'Manage Users' : (view === 'users' ? 'Back to Uploader' : 'Manage Users')}
             </button>
             <div className="flex items-center space-x-2">
               <label htmlFor="account-select" className="font-semibold text-gray-700">Account:</label>
@@ -224,7 +245,9 @@ function App() {
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
         {isLoading && <div className="text-center">Loading...</div>}
         
-        {view === 'uploader' ? renderUploaderView() : <ManageUsers />}
+        {view === 'landing' && renderLandingPage()}
+        {view === 'uploader' && renderUploaderView()}
+        {view === 'users' && <ManageUsers />}
 
       </main>
     </div>
