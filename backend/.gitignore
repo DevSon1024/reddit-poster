@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+
+accounts.json
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+# Dotenv
+.env
+
+# Local Data (Do not commit your images or user lists to GitHub)
+/Files
+/Uploaded Files
+/deleted_files
+users.csv
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.swp
+*.swo

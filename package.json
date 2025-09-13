@@ -1,0 +1,23 @@
+{
+  "name": "reddit-poster",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently \"npm start --prefix frontend\" \"set PYTHONIOENCODING=utf-8&& cd backend && .\\.venv\\Scripts\\python.exe app.py\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DevSon1024/reddit-poster.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DevSon1024/reddit-poster/issues"
+  },
+  "homepage": "https://github.com/DevSon1024/reddit-poster#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
