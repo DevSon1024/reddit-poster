@@ -5,11 +5,12 @@ const API_BASE_URL = 'http://localhost:5000';
 function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDeleted, setIsUploading, uploadType }) {
   const [caption, setCaption] = useState('');
   const [selectedFlair, setSelectedFlair] = useState('');
+  const [isNsfw, setIsNsfw] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState(new Set(post.files));
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const abortControllerRef = useRef(null);
-  
+
   useEffect(() => {
     if (flairs && flairs.length > 0) {
       if (!flairs.find(f => f.id === selectedFlair)) {
@@ -23,20 +24,15 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
   }, [post.files]);
 
   const handleFileSelection = (fileName) => {
-    if (uploadType === 'videos') {
-      // For videos, only allow one selection
-      setSelectedFiles(new Set([fileName]));
-    } else {
-      setSelectedFiles(prevSelected => {
-        const newSelected = new Set(prevSelected);
-        if (newSelected.has(fileName)) {
-          newSelected.delete(fileName);
-        } else {
-          newSelected.add(fileName);
-        }
-        return newSelected;
-      });
-    }
+    setSelectedFiles(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      if (newSelected.has(fileName)) {
+        newSelected.delete(fileName);
+      } else {
+        newSelected.add(fileName);
+      }
+      return newSelected;
+    });
   };
 
   const handleDeleteFile = async (fileName) => {
@@ -101,6 +97,7 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
         username: post.username,
         caption: caption,
         flairId: selectedFlair,
+        isNsfw: isNsfw,
       };
 
       if (uploadType === 'videos') {
@@ -133,56 +130,8 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
 
   if (!post) return null;
 
-  const renderImage = (file) => (
-    <div key={file} className="relative group aspect-square">
-      <label htmlFor={`checkbox-${post.uniqueId}-${file}`} className="cursor-pointer">
-        <img 
-          src={`${API_BASE_URL}/images/${encodeURIComponent(file)}`} 
-          alt={`preview of ${file}`} 
-          className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
-        />
-        <div 
-          className={`absolute inset-0 bg-black transition-opacity duration-200 rounded-lg ${selectedFiles.has(file) ? 'opacity-20' : 'opacity-0'}`}
-        ></div>
-      </label>
-      <input 
-        type="checkbox"
-        id={`checkbox-${post.uniqueId}-${file}`}
-        checked={selectedFiles.has(file)} 
-        onChange={() => handleFileSelection(file)}
-        className="absolute top-2 left-2 h-6 w-6 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-      />
-      {/* ... Delete button and filename overlay ... */}
-      <button
-        type="button"
-        className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 h-8 w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        onClick={() => handleDeleteFile(file)}
-        title={`Delete ${file}`}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-      </button>
-      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg truncate">{file}</div>
-    </div>
-  );
-
-  const renderVideo = (file) => (
-    <div key={file} className="relative group aspect-square cursor-pointer" onClick={() => handleFileSelection(file)}>
-      <video 
-        src={`${API_BASE_URL}/videos/${encodeURIComponent(file)}`} 
-        className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
-      />
-      <div className={`absolute inset-0 bg-black transition-opacity duration-200 rounded-lg ${selectedFiles.has(file) ? 'opacity-20' : 'opacity-0'}`}></div>
-      {/* --- UI Elements for video --- */}
-      <button type="button" onClick={() => handleDeleteFile(file)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 h-8 w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 z-10" title={`Delete ${file}`}><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg></button>
-      <a href={`${API_BASE_URL}/videos/${encodeURIComponent(file)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute top-2 left-2 bg-gray-800 text-white rounded-full p-1 h-8 w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 z-10" title="Open preview in new tab"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5" /></svg></a>
-      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg truncate">{file}</div>
-    </div>
-  );
-
-
   return (
     <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-8">
-      {/* ... Header remains the same ... */}
       <div className="flex flex-col md:flex-row justify-between md:items-center border-b border-gray-200 pb-4 mb-4">
         <div>
           <h3 className="text-xl font-bold text-gray-800">{post.titlePreview} {post.part > 0 && <span className="text-sm font-normal text-gray-500">(Part {post.part})</span>}</h3>
@@ -194,10 +143,49 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
       </div>
       
       <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-6`}>
-        {post.files.map(file => uploadType === 'images' ? renderImage(file) : renderVideo(file))}
+        {post.files.map(file => (
+          <div key={file} className="relative group aspect-square">
+            <label htmlFor={`checkbox-${post.uniqueId}-${file}`} className="cursor-pointer">
+              {uploadType === 'images' ? (
+                <img 
+                  src={`${API_BASE_URL}/images/${encodeURIComponent(file)}`} 
+                  alt={`preview of ${file}`} 
+                  className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
+                />
+              ) : (
+                <video 
+                  src={`${API_BASE_URL}/videos/${encodeURIComponent(file)}`} 
+                  className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
+                />
+              )}
+              <div 
+                className={`absolute inset-0 bg-black transition-opacity duration-200 rounded-lg ${selectedFiles.has(file) ? 'opacity-20' : 'opacity-0'}`}
+              ></div>
+            </label>
+            <input 
+              type="checkbox"
+              id={`checkbox-${post.uniqueId}-${file}`}
+              checked={selectedFiles.has(file)} 
+              onChange={() => handleFileSelection(file)}
+              className="absolute top-2 left-2 h-6 w-6 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+            />
+            <button
+              type="button"
+              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 h-8 w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              onClick={() => handleDeleteFile(file)}
+              title={`Delete ${file}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </button>
+             <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg truncate">
+              {file}
+            </div>
+          </div>
+        ))}
       </div>
       
-      {/* ... Form remains the same ... */}
       <form onSubmit={handleSubmit} className="mt-4 border-t border-gray-200 pt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="form-group">
@@ -228,6 +216,19 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
             </select>
           </div>
         </div>
+        <div className="mt-4">
+            <label htmlFor={`nsfw-${post.uniqueId}`} className="flex items-center">
+              <input
+                type="checkbox"
+                id={`nsfw-${post.uniqueId}`}
+                checked={isNsfw}
+                onChange={(e) => setIsNsfw(e.target.checked)}
+                disabled={isLoading}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-700">Mark as NSFW</span>
+            </label>
+          </div>
         <div className="mt-4 flex justify-end">
         {isLoading ? (
             <button
