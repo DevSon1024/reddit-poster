@@ -284,7 +284,25 @@ def upload_video_post():
     if not os.path.exists(video_path):
         return jsonify({"message": "Upload failed: Video not found on server."}), 400
 
+    # Create a temporary path for the no-audio, re-encoded video
+    temp_video_path = os.path.join(VIDEOS_DIR, "temp_" + video_to_upload)
+
     try:
+        # Use a more robust ffmpeg command to re-encode the video to a highly compatible format
+        import subprocess
+        command = [
+            'ffmpeg',
+            '-i', video_path,
+            '-vcodec', 'libx264',      # Explicitly use the H.264 codec
+            '-pix_fmt', 'yuv420p',    # Standard pixel format for web compatibility
+            '-preset', 'fast',       # Balance between speed and quality
+            '-an',                   # Remove the audio track
+            '-y',                    # Overwrite output file if it exists
+            temp_video_path
+        ]
+        print(f">> Processing video: {' '.join(command)}")
+        subprocess.run(command, check=True, capture_output=True, timeout=300) # 5-minute timeout
+
         user_map = get_user_map()
         name = user_map.get(username)
         title = f'"{name}"'
@@ -294,9 +312,12 @@ def upload_video_post():
             title += f" - {stripped_caption}"
 
         subreddit = reddit.subreddit(subreddit_name)
-        print(f"⬆>> Uploading video for {username} with title: {title}")
-        submission = subreddit.submit_video(title=title, video_path=video_path, thumbnail_path=None, without_websockets=True)
+        print(f"⬆>> Uploading processed video for {username} with title: {title}")
+        submission = subreddit.submit_video(title=title, video_path=temp_video_path, thumbnail_path=None, without_websockets=True)
         
+        if submission is None:
+            raise Exception("Video submission failed to return a valid post. This might be a processing issue on Reddit's side or an invalid video format.")
+
         submission.flair.select(flair_id)
         print(f">> Successfully posted video for {username}")
 
@@ -311,9 +332,20 @@ def upload_video_post():
             "message": "Upload successful!", 
             "url": f"https://www.reddit.com{submission.permalink}"
         })
+    except subprocess.CalledProcessError as e:
+        error_output = e.stderr.decode('utf-8') if e.stderr else 'No error output.'
+        print(f"!! FFmpeg failed: {error_output}")
+        return jsonify({"message": f"Video processing failed. Ensure ffmpeg is installed correctly and the video file is not corrupt. FFmpeg error: {error_output}"}), 500
+    except subprocess.TimeoutExpired:
+        print("!! FFmpeg timed out.")
+        return jsonify({"message": "Video processing timed out. The video may be too long or complex."}), 500
     except Exception as e:
         print(f"Error during video upload: {e}")
         return jsonify({"message": f"Upload failed: {str(e)}"}), 500
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_video_path):
+            os.remove(temp_video_path)
 
 
 # [GET] Fetch all users from CSV

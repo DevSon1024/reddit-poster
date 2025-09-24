@@ -58,10 +58,10 @@ function ManageUsers() {
     }
   };
 
-  const handleCopy = (name, username) => {
-    const textToCopy = `Name: ${name}, Username: ${username}`;
+  const handleCopy = (username) => {
+    const textToCopy = `${username}`;
     navigator.clipboard.writeText(textToCopy).then(() => {
-        setCopySuccess(`Copied: ${name}`);
+        setCopySuccess(`Copied: ${username}`);
         setTimeout(() => setCopySuccess(''), 2000); // Clear message after 2s
     }, (err) => {
         console.error('Could not copy text: ', err);
@@ -165,7 +165,7 @@ function ManageUsers() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.Username}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => handleCopy(user.Name, user.Username)}
+                        onClick={() => handleCopy(user.Username)}
                         className="text-indigo-600 hover:text-indigo-900"
                       >
                         Copy

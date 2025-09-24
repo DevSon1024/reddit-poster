@@ -5,8 +5,7 @@ import ManageUsers from './components/ManageUsers';
 const API_BASE_URL = 'http://localhost:5000';
 
 function App() {
-  const [view, setView] = useState('landing'); // 'landing', 'uploader', or 'users'
-  const [uploadType, setUploadType] = useState(null); // 'images' or 'videos'
+  const [view, setView] = useState('images'); // 'images', 'videos', or 'users'
   const [pendingPosts, setPendingPosts] = useState([]);
   const [flairs, setFlairs] = useState([]);
   const [error, setError] = useState('');
@@ -100,31 +99,31 @@ function App() {
 
   // Effect to handle account changes
   useEffect(() => {
-    if (selectedAccount && uploadType) {
+    if (selectedAccount && (view === 'images' || view === 'videos')) {
       setPendingPosts([]);
       setCurrentPage(1);
       setHasMore(true);
       fetchFlairs();
-      fetchPosts(1, uploadType);
+      fetchPosts(1, view);
     }
-  }, [selectedAccount, uploadType, fetchFlairs, fetchPosts]);
+  }, [selectedAccount, view, fetchFlairs, fetchPosts]);
 
   const handleRefresh = () => {
     setPendingPosts([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchPosts(1, uploadType);
+    fetchPosts(1, view);
     fetchFlairs();
   };
 
   const loadMorePosts = () => {
     const nextPage = currentPage + 1;
     setCurrentPage(nextPage);
-    fetchPosts(nextPage, uploadType);
+    fetchPosts(nextPage, view);
   };
   
   const handleUploadSuccess = (uniqueId) => {
-    fetchPosts(1, uploadType);
+    fetchPosts(1, view);
   };
 
   const handleFileDeleted = (uniqueId, deletedFile) => {
@@ -146,26 +145,6 @@ function App() {
     });
   };
 
-  const renderLandingPage = () => (
-    <div className="text-center">
-      <h2 className="text-3xl font-bold mb-8">What would you like to upload?</h2>
-      <div className="flex justify-center space-x-8">
-        <button
-          onClick={() => { setUploadType('images'); setView('uploader'); }}
-          className="bg-reddit-blue hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl transition duration-300"
-        >
-          Upload Images
-        </button>
-        <button
-          onClick={() => { setUploadType('videos'); setView('uploader'); }}
-          className="bg-reddit-orange hover:bg-orange-600 text-white font-bold py-4 px-8 rounded-lg text-xl transition duration-300"
-        >
-          Upload Videos
-        </button>
-      </div>
-    </div>
-  );
-
   const renderUploaderView = () => (
     <>
       {pendingPosts.map((post) => (
@@ -177,7 +156,7 @@ function App() {
           onUploadSuccess={handleUploadSuccess}
           onFileDeleted={handleFileDeleted}
           setIsUploading={setIsUploading}
-          uploadType={uploadType}
+          uploadType={view}
         />
       ))}
       {hasMore && !isLoading && (
@@ -202,11 +181,23 @@ function App() {
             Reddit Uploader
           </h1>
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-             <button
-              onClick={() => setView(view === 'uploader' ? 'users' : (view === 'users' ? 'uploader' : 'landing'))}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
+            <button
+              onClick={() => setView('images')}
+              className={`${view === 'images' ? 'bg-reddit-blue text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out`}
             >
-              {view === 'uploader' ? 'Manage Users' : (view === 'users' ? 'Back to Uploader' : 'Manage Users')}
+              Upload Images
+            </button>
+            <button
+              onClick={() => setView('videos')}
+              className={`${view === 'videos' ? 'bg-reddit-orange text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out`}
+            >
+              Upload Videos
+            </button>
+            <button
+              onClick={() => setView('users')}
+              className={`${view === 'users' ? 'bg-gray-400 text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out`}
+            >
+              Manage Users
             </button>
             <div className="flex items-center space-x-2">
               <label htmlFor="account-select" className="font-semibold text-gray-700">Account:</label>
@@ -223,7 +214,7 @@ function App() {
                 )}
               </select>
             </div>
-            {view === 'uploader' && (
+            {(view === 'images' || view === 'videos') && (
               <button 
                 onClick={handleRefresh} 
                 disabled={isLoading || isUploading}
@@ -245,8 +236,7 @@ function App() {
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
         {isLoading && <div className="text-center">Loading...</div>}
         
-        {view === 'landing' && renderLandingPage()}
-        {view === 'uploader' && renderUploaderView()}
+        {(view === 'images' || view === 'videos') && renderUploaderView()}
         {view === 'users' && <ManageUsers />}
 
       </main>
