@@ -302,6 +302,9 @@ def upload_video_post():
         print(f"⬆>> Uploading video for {username} with title: {title}")
         submission = subreddit.submit_video(title=title, video_path=video_path, thumbnail_path=None, without_websockets=True)
         
+        if submission is None:
+            raise Exception("Video submission failed. Reddit did not return a submission object. The video might be too long or in an unsupported format.")
+
         submission.flair.select(flair_id)
         if is_nsfw:
             submission.mod.nsfw()
