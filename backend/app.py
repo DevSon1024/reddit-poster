@@ -4,6 +4,8 @@ import pandas as pd
 import praw
 from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_cors import CORS
+from datetime import datetime
+import pytz
 
 # --- Configuration ---
 IMAGES_DIR = "Files/Images"
@@ -205,6 +207,9 @@ def upload_post():
     flair_id = data.get("flairId")
     images_to_upload = data.get("imagesToUpload")
     is_nsfw = data.get("isNsfw", False)
+    scheduled_at_str = data.get("scheduled_at")
+    timezone_str = data.get("timezone")
+
 
     if not all([account_username, username, flair_id, images_to_upload]):
         return jsonify({"message": "Missing required fields."}), 400
@@ -236,14 +241,23 @@ def upload_post():
         subreddit = reddit.subreddit(subreddit_name)
         submission = None
 
+        scheduled_at_utc = None
+        if scheduled_at_str and timezone_str:
+            local_tz = pytz.timezone(timezone_str)
+            naive_dt = datetime.strptime(scheduled_at_str, "%Y-%m-%dT%H:%M")
+            local_dt = local_tz.localize(naive_dt)
+            scheduled_at_utc = local_dt.astimezone(pytz.utc).isoformat()
+
         if len(valid_images_to_upload) == 1:
             image_path = os.path.join(IMAGES_DIR, valid_images_to_upload[0])
             print(f"⬆>> Uploading single image for {username} with title: {title}")
-            submission = subreddit.submit_image(title=title, image_path=image_path)
+            submission = subreddit.submit_image(title=title, image_path=image_path, nsfw=is_nsfw, flair_id=flair_id) if not scheduled_at_utc else subreddit.submit(title=title, selftext=None, url=image_path, nsfw=is_nsfw, flair_id=flair_id, scheduled_at=scheduled_at_utc)
+
         else:
             gallery_items = [{"image_path": os.path.join(IMAGES_DIR, img)} for img in valid_images_to_upload]
             print(f">> Uploading gallery of {len(gallery_items)} images for {username} with title: {title}")
-            submission = subreddit.submit_gallery(title=title, images=gallery_items)
+            submission = subreddit.submit_gallery(title=title, images=gallery_items, nsfw=is_nsfw, flair_id=flair_id) if not scheduled_at_utc else subreddit.submit(title=title, selftext=None, gallery_data=gallery_items, nsfw=is_nsfw, flair_id=flair_id, scheduled_at=scheduled_at_utc)
+
         
         submission.flair.select(flair_id)
         if is_nsfw:
@@ -275,6 +289,8 @@ def upload_video_post():
     flair_id = data.get("flairId")
     video_to_upload = data.get("videoToUpload")
     is_nsfw = data.get("isNsfw", False)
+    scheduled_at_str = data.get("scheduled_at")
+    timezone_str = data.get("timezone")
 
 
     if not all([account_username, username, flair_id, video_to_upload]):
@@ -299,8 +315,17 @@ def upload_video_post():
             title += f" - {stripped_caption}"
 
         subreddit = reddit.subreddit(subreddit_name)
+        
+        scheduled_at_utc = None
+        if scheduled_at_str and timezone_str:
+            local_tz = pytz.timezone(timezone_str)
+            naive_dt = datetime.strptime(scheduled_at_str, "%Y-%m-%dT%H:%M")
+            local_dt = local_tz.localize(naive_dt)
+            scheduled_at_utc = local_dt.astimezone(pytz.utc)
+
         print(f"⬆>> Uploading video for {username} with title: {title}")
-        submission = subreddit.submit_video(title=title, video_path=video_path, thumbnail_path=None, without_websockets=True)
+        
+        submission = subreddit.submit_video(title=title, video_path=video_path, thumbnail_path=None, without_websockets=True, nsfw=is_nsfw, flair_id=flair_id, scheduled_at=scheduled_at_utc.timestamp() if scheduled_at_utc else None)
         
         if submission is None:
             raise Exception("Video submission failed. Reddit did not return a submission object. The video might be too long or in an unsupported format.")
