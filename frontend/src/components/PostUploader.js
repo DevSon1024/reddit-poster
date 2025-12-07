@@ -11,10 +11,6 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
   const [message, setMessage] = useState(null);
   const [videoToPlay, setVideoToPlay] = useState(null);
   const abortControllerRef = useRef(null);
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   
   useEffect(() => {
     if (flairs && flairs.length > 0) {
@@ -117,11 +113,6 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
         body.videoToUpload = Array.from(selectedFiles)[0];
       } else {
         body.imagesToUpload = Array.from(selectedFiles);
-      }
-
-      if (scheduleEnabled && scheduleDate && scheduleTime) {
-        body.scheduled_at = `${scheduleDate}T${scheduleTime}`;
-        body.timezone = timezone;
       }
       
       const response = await fetch(`${API_BASE_URL}/api/posts/${endpoint}`, {
@@ -266,42 +257,6 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
               </label>
             </div>
 
-            <div className="mt-4">
-              <label htmlFor={`schedule-${post.uniqueId}`} className="flex items-center">
-                <input
-                  type="checkbox"
-                  id={`schedule-${post.uniqueId}`}
-                  checked={scheduleEnabled}
-                  onChange={(e) => setScheduleEnabled(e.target.checked)}
-                  disabled={isLoading}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-700">Enable Scheduling</span>
-              </label>
-            </div>
-
-            {scheduleEnabled && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <div>
-                  <label htmlFor={`schedule-date-${post.uniqueId}`} className="block text-sm font-medium text-gray-700">Date</label>
-                  <input type="date" id={`schedule-date-${post.uniqueId}`} value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm"/>
-                </div>
-                <div>
-                  <label htmlFor={`schedule-time-${post.uniqueId}`} className="block text-sm font-medium text-gray-700">Time</label>
-                  <input type="time" id={`schedule-time-${post.uniqueId}`} value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm"/>
-                </div>
-                <div>
-                  <label htmlFor={`timezone-${post.uniqueId}`} className="block text-sm font-medium text-gray-700">Timezone</label>
-                  <select id={`timezone-${post.uniqueId}`} value={timezone} onChange={e => setTimezone(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                    <option value="America/New_York">Eastern Time (US & Canada)</option>
-                    <option value="America/Chicago">Central Time (US & Canada)</option>
-                    <option value="America/Denver">Mountain Time (US & Canada)</option>
-                    <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
-                    <option value="Etc/UTC">UTC</option>
-                  </select>
-                </div>
-              </div>
-            )}
           <div className="mt-4 flex justify-end">
           {isLoading ? (
               <button
