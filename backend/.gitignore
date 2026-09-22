@@ -24,6 +24,10 @@ venv.bak/
 /deleted_files
 users.csv
 
+# Node
+node_modules
+.tmp_uploads/
+
 # IDE / Editor specific
 .vscode/
 .idea/

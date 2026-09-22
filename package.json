@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "concurrently \"npm start --prefix frontend\" \"set PYTHONIOENCODING=utf-8&& cd backend && python app.py\""
+    "dev": "concurrently -n \"FRONTEND,BACKEND\" -c \"blue,magenta\" \"npm start --prefix frontend\" \"npm run dev --prefix backend\"",
+    "start": "concurrently -n \"FRONTEND,BACKEND\" -c \"blue,magenta\" \"npm start --prefix frontend\" \"npm start --prefix backend\"",
+    "backend": "npm run dev --prefix backend",
+    "frontend": "npm start --prefix frontend",
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend"
   },
   "repository": {
     "type": "git",
