@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import LazyMedia from './LazyMedia';
 
 const API_BASE_URL = 'http://localhost:5000';
 
@@ -41,6 +42,14 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
         }
         return newSelected;
       });
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedFiles.size === post.files.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(post.files));
     }
   };
 
@@ -161,8 +170,17 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
             <h3 className="text-xl font-bold text-gray-800">{post.titlePreview} {post.part > 0 && <span className="text-sm font-normal text-gray-500">(Part {post.part})</span>}</h3>
             <p className="text-sm text-gray-600">Username: <span className="font-semibold">{post.username}</span></p>
           </div>
-          <div className="text-sm text-gray-600 mt-2 md:mt-0">
-            <p>{post.files.length} {uploadType} in batch (<span className="font-semibold">{selectedFiles.size} selected</span>)</p>
+          <div className="text-right mt-2 md:mt-0">
+            <p className="text-sm text-gray-600 mb-1">{post.files.length} {uploadType} in batch (<span className="font-semibold">{selectedFiles.size} selected</span>)</p>
+            {uploadType !== 'videos' && (
+              <button 
+                type="button"
+                onClick={handleSelectAll}
+                className="text-xs font-semibold text-reddit-blue hover:text-blue-800 underline focus:outline-none"
+              >
+                {selectedFiles.size === post.files.length ? 'Deselect All' : 'Select All'}
+              </button>
+            )}
           </div>
         </div>
         
@@ -170,20 +188,18 @@ function PostUploader({ post, flairs, selectedAccount, onUploadSuccess, onFileDe
           {post.files.map(file => (
             <div key={file} className="relative group aspect-square">
               <label htmlFor={`checkbox-${post.uniqueId}-${file}`} className="cursor-pointer">
-                {uploadType === 'images' ? (
-                  <img 
-                    src={`${API_BASE_URL}/images/${encodeURIComponent(file)}`} 
-                    alt={`preview of ${file}`} 
-                    className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
-                  />
-                ) : (
-                  <video 
-                    src={`${API_BASE_URL}/videos/${encodeURIComponent(file)}#t=0.1`}
-                    className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
-                    onClick={(e) => { e.preventDefault(); setVideoToPlay(file); }}
-                    preload="metadata"
-                  />
-                )}
+                <LazyMedia 
+                  type={uploadType === 'image' || uploadType === 'images' ? 'image' : 'video'}
+                  src={file}
+                  alt={`preview of ${file}`}
+                  className={`w-full h-full object-cover rounded-lg transition-all duration-200 ${selectedFiles.has(file) ? 'ring-4 ring-offset-2 ring-blue-500' : 'ring-2 ring-gray-200 group-hover:ring-blue-400'}`}
+                  onClick={(e) => {
+                    if (uploadType === 'videos') {
+                       e.preventDefault();
+                       setVideoToPlay(file);
+                    }
+                  }}
+                />
                 <div 
                   className={`absolute inset-0 bg-black transition-opacity duration-200 rounded-lg ${selectedFiles.has(file) ? 'opacity-20' : 'opacity-0'}`}
                 ></div>

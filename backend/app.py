@@ -6,6 +6,8 @@ from flask import Flask, jsonify, request, send_from_directory, make_response
 from flask_cors import CORS
 from datetime import datetime
 import pytz
+from werkzeug.utils import secure_filename
+import time
 
 # --- Configuration ---
 IMAGES_DIR = "Files/Images"
@@ -15,6 +17,8 @@ UPLOADED_VIDEOS_DIR = "Uploaded Files/Videos"
 DELETED_DIR = "deleted_files"
 CSV_FILE = "users.csv"
 ACCOUNTS_FILE = "accounts.json"
+ALLOWED_IMAGES = {'.jpg', '.jpeg', '.png', '.webp'}
+ALLOWED_VIDEOS = {'.mp4', '.mov', '.avi', '.mkv', '.webm'}
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
@@ -149,7 +153,7 @@ def get_pending_posts():
     for file_name in sorted_files:
         if file_name.lower().endswith(file_extensions):
             try:
-                username = file_name.split('_175')[0]
+                username = file_name.split('_176')[0]
             except IndexError:
                 print(f">> Skipping file due to missing underscore: {file_name}")
                 continue
@@ -330,6 +334,71 @@ def upload_video_post():
     except Exception as e:
         print(f"Error during video upload: {e}")
         return jsonify({"message": f"Upload failed: {str(e)}"}), 500
+
+
+# [POST] Direct file upload to server
+@app.route('/api/upload', methods=['POST'])
+def upload_files():
+    if 'files' not in request.files:
+        print(">> No files in request")
+        return jsonify({"message": "No files part in the request. Make sure to use 'files' key."}), 400
+    
+    files = request.files.getlist('files')
+    username = request.form.get('username')
+    upload_type = request.form.get('type') # 'images' or 'videos'
+
+    print(f">> Received upload request for user: {username}, type: {upload_type}, files: {len(files)}")
+
+    if not username or not upload_type:
+        return jsonify({"message": "Username and type are required."}), 400
+
+    if upload_type == 'images':
+        target_dir = IMAGES_DIR
+        allowed_exts = ALLOWED_IMAGES
+    elif upload_type == 'videos':
+        target_dir = VIDEOS_DIR
+        allowed_exts = ALLOWED_VIDEOS
+    else:
+        return jsonify({"message": "Invalid upload type. Use 'images' or 'videos'."}), 400
+
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+
+    uploaded_count = 0
+    errors = []
+
+    for file in files:
+        if file.filename == '':
+            continue
+        
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in allowed_exts:
+            errors.append(f"File type {ext} not allowed for {upload_type}.")
+            continue
+
+        # Create the required filename format: {username}_176_{timestamp}_{original_name}
+        # Using time.time_ns() for uniqueness if multiple files uploaded in same second
+        timestamp = f"{int(time.time())}_{int(time.time_ns() % 1000)}"
+        safe_name = secure_filename(file.filename)
+        new_filename = f"{username}_176_{timestamp}_{safe_name}"
+        
+        try:
+            file_path = os.path.join(target_dir, new_filename)
+            file.save(file_path)
+            uploaded_count += 1
+            print(f">> Saved file: {new_filename}")
+        except Exception as e:
+            print(f"!! Failed to save file {file.filename}: {e}")
+            errors.append(f"Failed to save {file.filename}: {str(e)}")
+
+    if uploaded_count == 0 and errors:
+        return jsonify({"message": "Upload failed.", "errors": errors}), 400
+
+    return jsonify({
+        "success": True,
+        "message": f"Successfully uploaded {uploaded_count} files.",
+        "errors": errors if errors else None
+    })
 
 
 # [GET] Fetch all users from CSV

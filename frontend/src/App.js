@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PostUploader from './components/PostUploader';
 import ManageUsers from './components/ManageUsers';
+import FileUpload from './components/FileUpload';
 
 const API_BASE_URL = 'http://localhost:5000';
 
 function App() {
-  const [view, setView] = useState('images'); // 'images', 'videos', or 'users'
+  const [view, setView] = useState('upload'); // 'images', 'videos', 'users', or 'upload'
   const [pendingPosts, setPendingPosts] = useState([]);
   const [flairs, setFlairs] = useState([]);
   const [error, setError] = useState('');
@@ -145,30 +146,64 @@ function App() {
     });
   };
 
+  // Infinite scroll observer
+  const observer = useRef();
+  const lastPostElementRef = useCallback(node => {
+    if (isLoading || isLoadingMore || isUploading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMorePosts();
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isLoading, isLoadingMore, isUploading, hasMore]);
+
   const renderUploaderView = () => (
     <>
-      {pendingPosts.map((post) => (
-        <PostUploader
-          key={post.uniqueId}
-          post={post}
-          flairs={flairs}
-          selectedAccount={selectedAccount}
-          onUploadSuccess={handleUploadSuccess}
-          onFileDeleted={handleFileDeleted}
-          setIsUploading={setIsUploading}
-          uploadType={view}
-        />
-      ))}
-      {hasMore && !isLoading && (
-        <div className="text-center mt-8">
-          <button
-            onClick={loadMorePosts}
-            disabled={isLoadingMore || isUploading}
-            className="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-6 rounded-md transition duration-300 ease-in-out disabled:bg-gray-400"
-          >
-            {isLoadingMore ? 'Loading...' : 'Load More'}
-          </button>
-        </div>
+      {pendingPosts.map((post, index) => {
+        if (pendingPosts.length === index + 1) {
+            return (
+                <div ref={lastPostElementRef} key={post.uniqueId}>
+                    <PostUploader
+                        post={post}
+                        flairs={flairs}
+                        selectedAccount={selectedAccount}
+                        onUploadSuccess={handleUploadSuccess}
+                        onFileDeleted={handleFileDeleted}
+                        setIsUploading={setIsUploading}
+                        uploadType={view}
+                    />
+                </div>
+            );
+        } else {
+            return (
+                <PostUploader
+                    key={post.uniqueId}
+                    post={post}
+                    flairs={flairs}
+                    selectedAccount={selectedAccount}
+                    onUploadSuccess={handleUploadSuccess}
+                    onFileDeleted={handleFileDeleted}
+                    setIsUploading={setIsUploading}
+                    uploadType={view}
+                />
+            );
+        }
+      })}
+      {isLoadingMore && (
+         <div className="text-center mt-8 p-4">
+            <svg className="animate-spin h-8 w-8 text-reddit-orange mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="text-gray-500 mt-2">Loading more posts...</p>
+         </div>
+      )}
+      {!hasMore && pendingPosts.length > 0 && (
+          <div className="text-center mt-8 p-4 text-gray-500">
+              No more posts to load.
+          </div>
       )}
     </>
   );
@@ -182,22 +217,31 @@ function App() {
           </h1>
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
             <button
+              onClick={() => setView('upload')}
+              className={`${view === 'upload' ? 'bg-indigo-600 text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Direct Upload
+            </button>
+            <button
               onClick={() => setView('images')}
               className={`${view === 'images' ? 'bg-reddit-blue text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out`}
             >
-              Upload Images
+              Post Images
             </button>
             <button
               onClick={() => setView('videos')}
               className={`${view === 'videos' ? 'bg-reddit-orange text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out`}
             >
-              Upload Videos
+              Post Videos
             </button>
             <button
               onClick={() => setView('users')}
-              className={`${view === 'users' ? 'bg-gray-400 text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out`}
+              className={`${view === 'users' ? 'bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300'} text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out`}
             >
-              Manage Users
+              Users
             </button>
             <div className="flex items-center space-x-2">
               <label htmlFor="account-select" className="font-semibold text-gray-700">Account:</label>
@@ -238,6 +282,10 @@ function App() {
         
         {(view === 'images' || view === 'videos') && renderUploaderView()}
         {view === 'users' && <ManageUsers />}
+        {view === 'upload' && <FileUpload onUploadSuccess={() => {
+          // You could automatically switch to the content view here if desired
+          // setView(uploadType === 'images' ? 'images' : 'videos');
+        }} />}
 
       </main>
     </div>
