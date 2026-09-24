@@ -10,6 +10,7 @@ const {
   BACKEND_ROOT,
 } = require("../config/constants");
 const { sanitizeFilename } = require("../utils/fileHelper");
+const userService = require("../services/userService");
 
 // Configure multer to temporarily stream uploads to .tmp_uploads
 const tmpDir = path.join(BACKEND_ROOT, ".tmp_uploads");
@@ -99,6 +100,16 @@ async function uploadFiles(req, res) {
         .json({ message: "Username and type are required." });
     }
 
+    const validUser = userService.findUserByUsername(username);
+    if (!validUser) {
+      files.forEach((f) => {
+        if (fs.existsSync(f.path)) fs.unlinkSync(f.path);
+      });
+      return res.status(400).json({
+        message: `Upload rejected: Username '${username}' is not found in users.csv. Please add the user first.`,
+      });
+    }
+
     let targetDir;
     let allowedExts;
 
@@ -134,10 +145,10 @@ async function uploadFiles(req, res) {
         continue;
       }
 
-      // Filename format: {username}_176_{timestamp}_{safe_name}
+      // Filename format: {canonicalUsername}_176_{timestamp}_{safe_name}
       const timestamp = `${Math.floor(Date.now() / 1000)}_${(Date.now() % 1000) + i}`;
       const safeName = sanitizeFilename(file.originalname);
-      const newFilename = `${username}_176_${timestamp}_${safeName}`;
+      const newFilename = `${validUser.Username}_176_${timestamp}_${safeName}`;
       const destinationPath = path.join(targetDir, newFilename);
 
       try {

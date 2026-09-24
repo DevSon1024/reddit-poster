@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0f19" />
+    <meta
+      name="description"
+      content="Reddit Poster - Automated Media & Content Management Dashboard"
+    />
+    <link rel="apple-touch-icon" href="/logo192.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Tailwind CSS with custom theme extension -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            },
+            colors: {
+              'reddit-orange': '#FF4500',
+              'reddit-orange-hover': '#e03d00',
+              'reddit-blue': '#0079D3',
+              'reddit-dark': '#0b0f19',
+              'slate-850': '#151e2e',
+              'slate-900': '#0f172a',
+              'slate-950': '#080c14',
+            },
+            boxShadow: {
+              'glow-orange': '0 0 20px -5px rgba(255, 69, 0, 0.4)',
+              'glow-blue': '0 0 20px -5px rgba(0, 121, 211, 0.4)',
+              'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+            }
+          }
+        }
+      }
+    </script>
+    <title>Reddit Poster Studio</title>
+  </head>
+  <body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-orange-500 selection:text-white">
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/index.jsx"></script>
+  </body>
+</html>

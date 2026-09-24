@@ -29,6 +29,7 @@ function getUserMap() {
     for (const u of users) {
       if (u.Username && u.Name) {
         userMap[u.Username] = u.Name;
+        userMap[u.Username.toLowerCase()] = u.Name;
       }
     }
     return userMap;
@@ -36,6 +37,35 @@ function getUserMap() {
     console.error('Error getting user map:', err);
     return {};
   }
+}
+
+function getValidUsersMap() {
+  try {
+    const users = getUsers();
+    const map = new Map();
+    for (const u of users) {
+      if (u.Username && u.Name) {
+        const key = u.Username.trim().toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, {
+            Name: u.Name.trim(),
+            Username: u.Username.trim(),
+          });
+        }
+      }
+    }
+    return map;
+  } catch (err) {
+    console.error('Error getting valid users map:', err);
+    return new Map();
+  }
+}
+
+function findUserByUsername(username) {
+  if (!username) return null;
+  const search = username.trim().toLowerCase();
+  const validMap = getValidUsersMap();
+  return validMap.get(search) || null;
 }
 
 function addUser(name, username) {
@@ -75,5 +105,7 @@ function addUser(name, username) {
 module.exports = {
   getUsers,
   getUserMap,
+  getValidUsersMap,
+  findUserByUsername,
   addUser,
 };

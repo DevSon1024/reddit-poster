@@ -32,7 +32,7 @@ async function getPendingPosts(req, res) {
       fs.mkdirSync(filesDir, { recursive: true });
     }
 
-    const userMap = userService.getUserMap();
+    const validUsersMap = userService.getValidUsersMap();
     const postsByUser = {};
 
     const allFiles = fs.readdirSync(filesDir).sort();
@@ -59,18 +59,27 @@ async function getPendingPosts(req, res) {
         }
 
         if (username) {
-          const displayName = userMap[username] || username.replace(/_/g, ' ');
-          if (!postsByUser[username]) {
-            postsByUser[username] = {
-              username,
+          // Strictly filter: only include media whose username exists in users.csv
+          const matchedUser = validUsersMap.get(username.trim().toLowerCase());
+          if (!matchedUser) {
+            // Username not found in users.csv; skip to prevent displaying wrongly named files
+            continue;
+          }
+
+          const canonicalUsername = matchedUser.Username;
+          const displayName = matchedUser.Name;
+
+          if (!postsByUser[canonicalUsername]) {
+            postsByUser[canonicalUsername] = {
+              username: canonicalUsername,
               name: displayName,
               titlePreview: `"${displayName}"`,
               files: [],
               fileCount: 0,
             };
           }
-          postsByUser[username].files.push(fileName);
-          postsByUser[username].fileCount += 1;
+          postsByUser[canonicalUsername].files.push(fileName);
+          postsByUser[canonicalUsername].fileCount += 1;
         }
       }
     }
@@ -147,8 +156,8 @@ async function uploadPost(req, res) {
         .json({ message: "Upload failed: No valid images found on server." });
     }
 
-    const userMap = userService.getUserMap();
-    const name = userMap[username] || username;
+    const matchedUser = userService.findUserByUsername(username);
+    const name = matchedUser ? matchedUser.Name : (userService.getUserMap()[username] || username);
     let title = `"${name}"`;
     if (caption) {
       const stripped = caption.replace(/<[^>]+>/g, "").trim();
@@ -252,8 +261,8 @@ async function uploadVideoPost(req, res) {
     const account = redditService.getAccount(accountUsername);
     const token = await redditService.getAccessToken(account);
 
-    const userMap = userService.getUserMap();
-    const name = userMap[username] || username;
+    const matchedUser = userService.findUserByUsername(username);
+    const name = matchedUser ? matchedUser.Name : (userService.getUserMap()[username] || username);
     let title = `"${name}"`;
     if (caption) {
       const stripped = caption.replace(/<[^>]+>/g, "").trim();
