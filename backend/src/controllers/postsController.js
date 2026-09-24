@@ -32,56 +32,48 @@ async function getPendingPosts(req, res) {
       fs.mkdirSync(filesDir, { recursive: true });
     }
 
-    const validUsersMap = userService.getValidUsersMap();
+    const sortedUsers = userService.getSortedUsers();
     const postsByUser = {};
 
     const allFiles = fs.readdirSync(filesDir).sort();
 
     for (const fileName of allFiles) {
       const ext = path.extname(fileName).toLowerCase();
-      if (fileExtensions.includes(ext)) {
-        let username = null;
-        try {
-          if (fileName.includes('_176_')) {
-            username = fileName.split('_176_')[0];
-          } else {
-            const m = fileName.match(/^(.+?)_(?:1[6-9]\d{8,}|[0-9]{9,11})_/);
-            if (m) {
-              username = m[1];
-            } else {
-              const fb = fileName.match(/^([a-zA-Z0-9_]+?)_[0-9]+/);
-              username = fb ? fb[1] : path.parse(fileName).name.split('_')[0];
-            }
-          }
-        } catch (e) {
-          console.log(`>> Skipping file due to naming format: ${fileName}`);
+      if (!fileExtensions.includes(ext)) {
+        continue;
+      }
+
+      // Skip subdirectories if any
+      const fullPath = path.join(filesDir, fileName);
+      try {
+        if (fs.statSync(fullPath).isDirectory()) {
           continue;
         }
-
-        if (username) {
-          // Strictly filter: only include media whose username exists in users.csv
-          const matchedUser = validUsersMap.get(username.trim().toLowerCase());
-          if (!matchedUser) {
-            // Username not found in users.csv; skip to prevent displaying wrongly named files
-            continue;
-          }
-
-          const canonicalUsername = matchedUser.Username;
-          const displayName = matchedUser.Name;
-
-          if (!postsByUser[canonicalUsername]) {
-            postsByUser[canonicalUsername] = {
-              username: canonicalUsername,
-              name: displayName,
-              titlePreview: `"${displayName}"`,
-              files: [],
-              fileCount: 0,
-            };
-          }
-          postsByUser[canonicalUsername].files.push(fileName);
-          postsByUser[canonicalUsername].fileCount += 1;
-        }
+      } catch {
+        continue;
       }
+
+      // Match media filename directly against registered users in users.csv
+      const matchedUser = userService.matchUserForFilename(fileName, sortedUsers);
+      if (!matchedUser) {
+        // Not a registered user in users.csv; skip to prevent displaying wrongly named files
+        continue;
+      }
+
+      const canonicalUsername = matchedUser.canonicalUsername;
+      const displayName = matchedUser.name;
+
+      if (!postsByUser[canonicalUsername]) {
+        postsByUser[canonicalUsername] = {
+          username: canonicalUsername,
+          name: displayName,
+          titlePreview: `"${displayName}"`,
+          files: [],
+          fileCount: 0,
+        };
+      }
+      postsByUser[canonicalUsername].files.push(fileName);
+      postsByUser[canonicalUsername].fileCount += 1;
     }
 
     const pendingPosts = Object.values(postsByUser);

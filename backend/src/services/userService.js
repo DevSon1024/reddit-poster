@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const { CSV_FILE } = require('../config/constants');
@@ -68,6 +69,37 @@ function findUserByUsername(username) {
   return validMap.get(search) || null;
 }
 
+function getSortedUsers() {
+  const users = getUsers();
+  return users
+    .filter(u => u.Username && u.Name)
+    .map(u => ({
+      canonicalUsername: u.Username.trim(),
+      name: u.Name.trim(),
+      lowerUsername: u.Username.trim().toLowerCase(),
+    }))
+    .sort((a, b) => b.lowerUsername.length - a.lowerUsername.length);
+}
+
+function matchUserForFilename(filename, sortedUsers = null) {
+  if (!filename) return null;
+  const list = sortedUsers || getSortedUsers();
+  const baseName = path.parse(path.basename(filename)).name.toLowerCase();
+
+  for (const user of list) {
+    if (
+      baseName === user.lowerUsername ||
+      baseName.startsWith(user.lowerUsername + '_') ||
+      baseName.startsWith(user.lowerUsername + '-') ||
+      baseName.startsWith(user.lowerUsername + '.')
+    ) {
+      return user;
+    }
+  }
+
+  return null;
+}
+
 function addUser(name, username) {
   let users = [];
   if (fs.existsSync(CSV_FILE)) {
@@ -106,6 +138,8 @@ module.exports = {
   getUsers,
   getUserMap,
   getValidUsersMap,
+  getSortedUsers,
   findUserByUsername,
+  matchUserForFilename,
   addUser,
 };

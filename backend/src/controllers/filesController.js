@@ -145,10 +145,10 @@ async function uploadFiles(req, res) {
         continue;
       }
 
-      // Filename format: {canonicalUsername}_176_{timestamp}_{safe_name}
-      const timestamp = `${Math.floor(Date.now() / 1000)}_${(Date.now() % 1000) + i}`;
+      // Filename format: {canonicalUsername}_{timestamp}_{safeName}
+      const timestamp = Date.now() + i;
       const safeName = sanitizeFilename(file.originalname);
-      const newFilename = `${validUser.Username}_176_${timestamp}_${safeName}`;
+      const newFilename = `${validUser.Username}_${timestamp}_${safeName}`;
       const destinationPath = path.join(targetDir, newFilename);
 
       try {
