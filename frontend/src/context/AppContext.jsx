@@ -83,6 +83,79 @@ export function AppProvider({ children }) {
     return () => { isMounted = false; };
   }, [selectedAccount]);
 
+  const [uploads, setUploads] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('reddit_poster_uploads');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isFabExpanded, setIsFabExpanded] = useState(false);
+
+  // Sync uploads to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('reddit_poster_uploads', JSON.stringify(uploads));
+    } catch {
+      // ignore
+    }
+  }, [uploads]);
+
+  const startUpload = useCallback(({ name, username, count, type = 'images', account, isStaging = false, caption = '' }) => {
+    const id = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newUpload = {
+      id,
+      name: name || username || 'Unknown',
+      username,
+      count: count || 1,
+      type: type, // 'images' or 'videos'
+      isStaging,
+      account,
+      caption,
+      status: 'publishing', // 'publishing', 'completed', 'error'
+      progressText: isStaging ? 'Uploading files to staging...' : 'Posting to Reddit...',
+      startedAt: Date.now(),
+      completedAt: null,
+      url: null,
+      error: null,
+    };
+    setUploads(prev => [newUpload, ...prev]);
+    return id;
+  }, []);
+
+  const finishUpload = useCallback((id, { success = true, url = null, error = null }) => {
+    setUploads(prev =>
+      prev.map(item => {
+        if (item.id === id) {
+          return {
+            ...item,
+            status: success ? 'completed' : 'error',
+            progressText: success ? 'Published' : 'Failed',
+            completedAt: Date.now(),
+            url,
+            error,
+          };
+        }
+        return item;
+      })
+    );
+  }, []);
+
+  const removeUpload = useCallback((id) => {
+    setUploads(prev => prev.filter(u => u.id !== id));
+  }, []);
+
+  const clearCompletedUploads = useCallback(() => {
+    setUploads(prev => prev.filter(u => u.status === 'publishing'));
+  }, []);
+
+  const toggleFabExpanded = useCallback(() => {
+    setIsFabExpanded(prev => !prev);
+  }, []);
+
+  const activeUploadsCount = uploads.filter(u => u.status === 'publishing').length;
+
   const value = {
     accounts,
     selectedAccount,
@@ -98,6 +171,15 @@ export function AppProvider({ children }) {
     removeToast,
     counts,
     setCounts,
+    uploads,
+    activeUploadsCount,
+    isFabExpanded,
+    setIsFabExpanded,
+    toggleFabExpanded,
+    startUpload,
+    finishUpload,
+    removeUpload,
+    clearCompletedUploads,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

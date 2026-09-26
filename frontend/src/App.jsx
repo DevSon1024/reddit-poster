@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import Header from './components/common/Header';
 import ToastContainer from './components/common/ToastContainer';
+import PublishingFAB from './components/common/PublishingFAB';
 import PostsView from './components/posts/PostsView';
 import FileUploadView from './components/upload/FileUploadView';
 import UsersView from './components/users/UsersView';
@@ -30,6 +31,9 @@ function AppContent() {
         {activeView === 'upload' && <FileUploadView />}
         {activeView === 'users' && <UsersView />}
       </main>
+
+      {/* Floating Action Button (FAB) for Publishing Status */}
+      <PublishingFAB />
 
       {/* Global Toast Alert Notifications */}
       <ToastContainer />

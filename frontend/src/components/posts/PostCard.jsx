@@ -24,7 +24,7 @@ export default function PostCard({
   onFileDeleted,
   onPlayVideo,
 }) {
-  const { showToast } = useApp();
+  const { showToast, startUpload, finishUpload, uploads } = useApp();
 
   const [caption, setCaption] = useState('');
   const [selectedFlair, setSelectedFlair] = useState(
@@ -37,6 +37,10 @@ export default function PostCard({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isVideo = uploadType === 'videos';
+  const isPostQueued = uploads?.some(
+    u => u.username === post.username && u.status === 'publishing'
+  );
+  const isBusy = isSubmitting || isPostQueued;
 
   // Toggle single file selection
   const handleToggleFile = (file) => {
@@ -100,6 +104,15 @@ export default function PostCard({
       return;
     }
 
+    const uploadId = startUpload({
+      name: post.name || post.username,
+      username: post.username,
+      count: selectedFiles.length,
+      type: uploadType,
+      account: selectedAccount,
+      caption: caption.trim(),
+    });
+
     setIsSubmitting(true);
     try {
       let res;
@@ -123,6 +136,7 @@ export default function PostCard({
         });
       }
 
+      finishUpload(uploadId, { success: true, url: res.url });
       showToast(res.message || 'Successfully posted to Reddit!', 'success');
       if (res.url) {
         window.open(res.url, '_blank', 'noopener,noreferrer');
@@ -132,6 +146,10 @@ export default function PostCard({
         onUploadSuccess();
       }
     } catch (err) {
+      finishUpload(uploadId, {
+        success: false,
+        error: err.message || 'Failed to post to Reddit.',
+      });
       showToast(err.message || 'Failed to post to Reddit.', 'error');
     } finally {
       setIsSubmitting(false);
@@ -272,11 +290,11 @@ export default function PostCard({
               type="submit"
               variant="primary"
               size="md"
-              loading={isSubmitting}
-              disabled={isSubmitting || selectedFiles.length === 0}
+              loading={isBusy}
+              disabled={isBusy || selectedFiles.length === 0}
               icon={Send}
             >
-              {isSubmitting
+              {isBusy
                 ? 'Posting to Reddit...'
                 : `Post ${selectedFiles.length} ${isVideo ? 'Video' : 'Image'}${
                     selectedFiles.length === 1 ? '' : 's'

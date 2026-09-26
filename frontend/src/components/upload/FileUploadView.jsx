@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export default function FileUploadView() {
-  const { showToast, triggerRefresh } = useApp();
+  const { showToast, triggerRefresh, startUpload, finishUpload } = useApp();
 
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
@@ -126,6 +126,17 @@ export default function FileUploadView() {
 
     setIsUploading(true);
 
+    const matchedUser = users.find(u => u.Username === selectedUser);
+    const displayName = matchedUser ? matchedUser.Name : selectedUser;
+
+    const uploadId = startUpload({
+      name: displayName,
+      username: selectedUser,
+      count: selectedFiles.length,
+      type: uploadType,
+      isStaging: true,
+    });
+
     const formData = new FormData();
     selectedFiles.forEach(file => {
       formData.append('files', file);
@@ -135,11 +146,13 @@ export default function FileUploadView() {
 
     try {
       const result = await uploadDirectFiles(formData);
+      finishUpload(uploadId, { success: true });
       showToast(result.message || `Uploaded ${selectedFiles.length} files successfully!`, 'success');
       setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
       triggerRefresh();
     } catch (err) {
+      finishUpload(uploadId, { success: false, error: err.message });
       showToast(`Upload failed: ${err.message}`, 'error');
     } finally {
       setIsUploading(false);
